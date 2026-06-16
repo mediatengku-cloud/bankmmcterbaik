@@ -916,3 +916,110 @@ function payInvoiceFromDetail() {
         payInvoice(currentInvoiceId);
     }
 }
+
+// ==================== AI ASSISTANT ====================
+
+async function aiGenerate(prompt) {
+    if (!CONFIG.GEMINI_API_KEY) {
+        alert('⚠️ API Key Gemini belum diisi!\n\nBuka js/config.js dan isi GEMINI_API_KEY.\nDapatkan API Key gratis di https://aistudio.google.com/apikey');
+        return null;
+    }
+    try {
+        const res = await fetch(`${CONFIG.GEMINI_API_URL}?key=${CONFIG.GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.3 }
+            })
+        });
+        if (!res.ok) {
+            if (res.status === 429) throw new Error('Kuota AI habis atau belum punya API Key. Buat API Key gratis di https://aistudio.google.com/apikey lalu isi di Settings.');
+            if (res.status === 403) throw new Error('API Key tidak valid. Cek lagi di Settings.');
+            throw new Error('AI error: ' + res.status);
+        }
+        const data = await res.json();
+        return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    } catch (err) {
+        alert('❌ AI gagal: ' + err.message);
+        return null;
+    }
+}
+
+async function aiFillInvoice() {
+    const customerName = document.getElementById('invoiceCustomerName').value || 'pelanggan';
+    const type = document.getElementById('invoiceType').value;
+    let specs = '';
+    if (type === 'print') {
+        specs = `${document.getElementById('printBookSize').value || 'A4'}, ${document.getElementById('printBinding').value || 'Lem Panas'}`;
+    } else if (type === 'laptop') {
+        specs = `${document.getElementById('laptopName').value || 'Laptop'}, ${document.getElementById('laptopProcessor').value || ''}`;
+    } else {
+        specs = document.getElementById('umumType').value || 'Umum';
+    }
+    
+    const prompt = `Buat daftar item untuk invoice percetakan/penjualan dengan data:
+- Pelanggan: ${customerName}
+- Tipe: ${type} (${specs})
+- Buat 3-5 item yang relevan dengan format: nama_item|jumlah|harga_per_item(pakai angka wajar Indonesia)
+Contoh format output (setiap baris):
+Buku Tahunan SD|50|45000
+Stiker Label|100|5000
+        
+Hanya kirim item-itemnya saja, tanpa angka awal, tanpa teks lain.`;
+    
+    const result = await aiGenerate(prompt);
+    if (!result) return;
+    
+    const lines = result.trim().split('\n').filter(l => l.includes('|'));
+    if (lines.length === 0) {
+        alert('AI tidak menghasilkan item. Coba lagi.');
+        return;
+    }
+    
+    // Hapus item default dan tambah hasil AI
+    invoiceItems = [];
+    lines.forEach(line => {
+        const parts = line.split('|');
+        if (parts.length >= 3) {
+            invoiceItems.push({
+                id: generateId(),
+                name: parts[0].trim(),
+                qty: parseInt(parts[1]) || 1,
+                price: parseInt(parts[2].replace(/\D/g, '')) || 0
+            });
+        }
+    });
+    
+    renderInvoiceItems();
+    alert(`✅ AI berhasil membuat ${invoiceItems.length} item!`);
+}
+
+async function aiSuggestCategory() {
+    const desc = document.getElementById('transactionDesc')?.value;
+    if (!desc || desc.length < 3) {
+        alert('Tulis keterangan transaksi dulu, lalu klik AI.');
+        return;
+    }
+    const prompt = `Kategorikan transaksi ini: "${desc}"
+Pilih salah satu kategori yang PALING SESUAI:
+- Pemasukan: Penjualan, Jasa, Pendapatan Lain
+- Pengeluaran: Pembelian, Operasional, Gaji, Modal Keluar, Pengeluaran Lain
+
+Jawab hanya nama kategorinya saja, tanpa teks lain.`;
+    
+    const result = await aiGenerate(prompt);
+    if (!result) return;
+    
+    const cat = result.trim();
+    const select = document.getElementById('transactionCategory');
+    if (select) {
+        for (let opt of select.options) {
+            if (opt.value.toLowerCase() === cat.toLowerCase()) {
+                select.value = opt.value;
+                break;
+            }
+        }
+    }
+    alert(`✅ AI menyarankan kategori: ${cat}`);
+}
