@@ -2,7 +2,7 @@
 
 const APP_NAME = 'MUGHIS BANK';
 const JSONBIN_API = 'https://api.jsonbin.io/v3/b';
-const JSONBIN_KEY = '$2a$10$mSL6WQm7kBCTRDisRmHm4ugCwt7LVugUA5SPIheR8l.FpGo1g.5jq';
+const JSONBIN_KEY = CONFIG.JSONBIN_KEY;
 
 // Firebase Config (Opsional untuk integrasi lebih lanjut)
 const FIREBASE_CONFIG = {
@@ -56,8 +56,10 @@ let invoiceItems = [];
 // ==================== AUTHENTICATION ====================
 
 function initGoogleSignIn() {
+    const clientId = CONFIG.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+    if (clientId.startsWith('YOUR_')) return;
     google.accounts.id.initialize({
-        client_id: '123456789-abcdefg.apps.googleusercontent.com', // Ganti dengan Client ID Anda
+        client_id: clientId,
         callback: handleGoogleSignIn
     });
     google.accounts.id.renderButton(
@@ -260,6 +262,12 @@ function init() {
     document.getElementById('settingBusinessName').value = settings.businessName;
     document.getElementById('settingWhatsApp').value = settings.whatsapp;
     document.getElementById('settingAddress').value = settings.address;
+    
+    // Load AI key
+    const savedAiKey = localStorage.getItem(`mughis_ai_key_${currentUser?.userId || 'guest'}`);
+    if (savedAiKey) CONFIG.GEMINI_API_KEY = savedAiKey;
+    const aiKeyInput = document.getElementById('settingAiKey');
+    if (aiKeyInput) aiKeyInput.value = savedAiKey || '';
 
     recalculateAll();
     renderAll();
@@ -1365,6 +1373,17 @@ function saveSettings() {
     saveData(DB.settings, settings);
     alert('✅ Pengaturan disimpan!');
     addActivity('Mengupdate pengaturan usaha');
+}
+
+function saveAiKey() {
+    const key = document.getElementById('settingAiKey')?.value?.trim();
+    if (!key) {
+        alert('⚠️ Masukkan API Key Gemini.');
+        return;
+    }
+    localStorage.setItem(`mughis_ai_key_${currentUser?.userId || 'guest'}`, key);
+    CONFIG.GEMINI_API_KEY = key;
+    alert('✅ API Key AI disimpan!');
 }
 
 function exportData() {
