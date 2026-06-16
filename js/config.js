@@ -9,7 +9,7 @@ const CONFIG = {
     
     // JSONBin
     JSONBIN_API: 'https://api.jsonbin.io/v3/b',
-    JSONBIN_KEY: 'YOUR_JSONBIN_KEY',
+    JSONBIN_KEY: '$2a$10$mSL6WQm7kBCTRDisRmHm4ugCwt7LVugUA5SPIheR8l.FpGo1g.5jq',
     
     // Aplikasi
     APP_NAME: 'MUGHIS BANK',
